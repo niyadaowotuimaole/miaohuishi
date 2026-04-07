@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import iconv from 'iconv-lite'
-
+// GBK decode using built-in TextDecoder
 const EM = 'https://push2.eastmoney.com/api/qt'
 
 // === 腾讯行情 API (GBK) ===
@@ -10,7 +9,7 @@ async function tencentFetch(path: string): Promise<string> {
     next: { revalidate: 60 }
   })
   const buf = await res.arrayBuffer()
-  return iconv.decode(Buffer.from(buf), 'gbk')
+  return new TextDecoder('gbk').decode(Buffer.from(buf))
 }
 
 async function fetchIndices() {
