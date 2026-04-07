@@ -1,1 +1,117 @@
-import { NextResponse } from 'next/server';const EM='https://push2.eastmoney.com/api/qt';async function fetchIndices(){try{const fs='b:1.000001,b:0.399001,b:0.399006,b:1.000300,b:0.399905';const r=await fetch(`${EM}/clist/get?pn=1&pz=5&po=1&np=1&fltt=2&invt=2&fid=f3&fs=${encodeURIComponent(fs)}&fields=f2,f3,f4,f12,f14&ut=bd1d9ddb04089700cf9c27f6f7426281`,{next:{revalidate:60}});const j=await r.json();return(j?.data?.diff||[]).slice(0,5).map((i:any)=>({code:i.f12,name:i.f14,price:Number(i.f2),change:Number(i.f4),changePercent:Number(i.f3)}))}catch{return null}}async function fetchMetals(){try{const r=await fetch(`${EM}/clist/get?pn=1&pz=50&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:124&fields=f2,f3,f4,f12,f14&ut=bd1d9ddb04089700cf9c27f6f7426281`,{next:{revalidate:300}});const j=await r.json();const lst:any[]=j?.data?.diff||[];const gold=lst.find((s:any)=>(s.f14||'').includes('黄金'));const silver=lst.find((s:any)=>(s.f14||'').includes('白银'));const r2=await fetch(`${EM}/clist/get?pn=1&pz=10&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:134&fields=f2,f3,f4,f12,f14&ut=bd1d9ddb04089700cf9c27f6f7426281`,{next:{revalidate:300}});const j2=await r2.json();const lst2:any[]=j2?.data?.diff||[];const dxy=lst2.find((s:any)=>(s.f14||'').includes('美元指数'));return{gold:gold?{price:Number(gold.f2),change:Number(gold.f4),changePercent:Number(gold.f3)}:null,silver:silver?{price:Number(silver.f2),change:Number(silver.f4),changePercent:Number(silver.f3)}:null,usdIndex:dxy?{price:Number(dxy.f2),change:Number(dxy.f4),changePercent:Number(dxy.f3)}:null}}catch{return null}}async function fetchLimitUp(){try{const fs='m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23';const r=await fetch(`${EM}/clist/get?pn=1&pz=30&po=1&np=1&fltt=2&invt=2&fid=f3&fs=${encodeURIComponent(fs)}&fields=f2,f3,f4,f12,f14,f18&ut=bd1d9ddb04089700cf9c27f6f7426281`,{next:{revalidate:600}});const j=await r.json();return(j?.data?.diff||[]).filter((s:any)=>Number(s.f3)>=9.5).slice(0,20).map((s:any)=>({code:s.f12,name:s.f14,price:s.f2,change:s.f4,changePercent:s.f3,sector:'—',time:s.f18?formatTs(Number(s.f18)):'—',reason:guess(s.f14||'')}))}catch{return null}}async function fetchHotSectors(){try{const r=await fetch(`${EM}/clist/get?pn=1&pz=10&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:90+t:2&fields=f2,f3,f4,f12,f14,f8&ut=bd1d9ddb04089700cf9c27f6f7426281`,{next:{revalidate:300}});const j=await r.json();return(j?.data?.diff||[]).slice(0,10).map((s:any)=>({name:s.f14||'—',stocks:Number(s.f8)||0,heat:Math.min(100,Math.max(0,Math.round(50+Number(s.f3||0)))),change:s.f3,changePercent:s.f2}))}catch{return null}}async function fetchNews(){try{const r=await fetch('https://newsapi.eastmoney.com/kuaixun/v1/getlist_101_ajaxResult_50_1_.html',{next:{revalidate:300}});const text=await r.text();const st=text.indexOf('{'),ed=text.lastIndexOf('}');if(st===-1||ed===-1)return[];let json:any;try{json=JSON.parse(text.slice(st,ed+1))}catch{return[]};return(json?.LivesList||[]).slice(0,10).map((item:any)=>({title:item.title||item.CONTENT||'',type:classify(item.title||item.CONTENT||''),time:relTime(item.showtime||item.NOTIME||''),related:extract(item.title||item.CONTENT||'')}))}catch{return[]}}function guess(n:string){const m:Record<string,string>={'AI':'AI概念持续发酵','算力':'算力需求爆发','芯片':'半导体国产替代','汽车':'新能源汽车政策利好','医药':'医疗板块超跌反弹','军工':'军工订单超预期','银行':'银行板块估值修复','白酒':'消费复苏带动业绩','光伏':'光伏装机量增长','锂电':'锂电池出口大增'};for(const[k,v]of Object.entries(m)){if(n.includes(k))return v}return'板块轮动'}function formatTs(ts:number){const d=new Date(ts*1000);return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`}function classify(t:string){if(t.includes('央行')||t.includes('证监会')||t.includes('财政部')||t.includes('监管'))return'政策';if(t.includes('业绩')||t.includes('营收')||t.includes('净利润'))return'财报';return'行业'}function extract(t:string){const tags:string[]=[];['AI','新能源','半导体','医药','银行','白酒','芯片','锂电','军工','光伏'].forEach(k=>{if(t.includes(k))tags.push(k)});return tags.slice(0,3)}function relTime(ts:string){if(!ts)return'';const d=new Date(ts),h=Math.floor((Date.now()-d.getTime())/3600000);if(h<1)return'刚刚';if(h<24)return`${h}小时前`;return`${Math.floor(h/24)}天前`}export async function GET(){const[metalData,indices,limitUpStocks,hotSectors,news]=await Promise.all([fetchMetals(),fetchIndices(),fetchLimitUp(),fetchHotSectors(),fetchNews()]);const updateTime=new Date().toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'});return NextResponse.json({updateTime,metalData:metalData||defM(),stockData:indices||defI(),limitUpStocks:limitUpStocks||defS(),hotSectors:hotSectors||defH(),news:news||defN()})}function defM(){return{gold:{price:2345.67,change:12.34,changePercent:0.53},silver:{price:27.45,change:-0.23,changePercent:-0.83},usdIndex:{price:104.32,change:-0.15,changePercent:-0.14}}}function defI(){return[{name:'上证指数',code:'000001',price:3047.32,change:15.67,changePercent:0.52},{name:'深证成指',code:'399001',price:9845.21,change:-23.45,changePercent:-0.24},{name:'创业板',code:'399006',price:1856.78,change:32.11,changePercent:1.76},{name:'沪深300',code:'000300',price:3521.45,change:8.92,changePercent:0.25}]}function defS(){return[{code:'000001',name:'平安银行',reason:'银行板块利好',sector:'银行',time:'09:30'},{code:'600519',name:'贵州茅台',reason:'业绩超预期',sector:'白酒',time:'09:45'},{code:'002594',name:'比亚迪',reason:'销量大增',sector:'新能源汽车',time:'10:15'},{code:'300750',name:'宁德时代',reason:'电池技术突破',sector:'锂电池',time:'10:30'},{code:'688981',name:'中芯国际',reason:'国产替代加速',sector:'半导体',time:'11:00'}]}function defH(){return[{name:'AI概念',stocks:45,heat:98},{name:'新能源汽车',stocks:32,heat:85},{name:'半导体',stocks:28,heat:82},{name:'医疗健康',stocks:22,heat:75},{name:'银行',stocks:18,heat:70}]}function defN(){return[{title:'央行降准0.25个百分点，释放长期资金约5000亿',type:'政策',time:'2小时前',related:['银行','券商']},{title:'工信部发布AI产业发展规划，这些板块迎利好',type:'行业',time:'4小时前',related:['AI','科技']},{title:'宁德时代发布神行PLUS电池，续航超1000公里',type:'公司',time:'5小时前',related:['宁德时代','新能源']}]}
+import { NextResponse } from 'next/server'
+const EM = 'https://push2.eastmoney.com/api/qt'
+
+async function fetchIndices() {
+  try {
+    const r = await fetch(EM + '/ulist.np/get?fltt=2&invt=2&fields=f12,f14,f2,f3,f4&secids=1.000001,0.399001,0.399006,1.000300,0.399905', { next: { revalidate: 60 } })
+    const j = await r.json()
+    const diff: any[] = j?.data?.diff || []
+    return diff.slice(0, 5).map((item: any) => {
+      const prevClose = Number(item.f2)
+      const change = Number(item.f4)
+      return { code: item.f12, name: item.f14, price: Math.round((prevClose + change) * 100) / 100, change: Math.round(change * 100) / 100, changePercent: Math.round(Number(item.f3) * 100) / 100, source: '东方财富' }
+    })
+  } catch { return null }
+}
+
+async function fetchMetals() {
+  try {
+    const r = await fetch(EM + '/clist/get?pn=1&pz=50&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:90+t:3&fields=f2,f3,f4,f12,f14&ut=bd1d9ddb04089700cf9c27f6f7426281', { next: { revalidate: 300 } })
+    const j = await r.json()
+    const list: any[] = j?.data?.diff || []
+    const gold = list.find((s: any) => (s.f14 || '').includes('黄金'))
+    const silver = list.find((s: any) => (s.f14 || '').includes('白银'))
+    return {
+      gold: gold ? { name: gold.f14, price: gold.f2, change: Math.round(Number(gold.f4)*100)/100, changePercent: Math.round(Number(gold.f3)*100)/100, source: '东方财富概念板块', note: '概念涨跌，非现货' } : null,
+      silver: silver ? { name: silver.f14, price: silver.f2, change: Math.round(Number(silver.f4)*100)/100, changePercent: Math.round(Number(silver.f3)*100)/100, source: '东方财富概念板块', note: '概念涨跌，非现货' } : null,
+      note: '以上为概念板块涨跌，非国际现货价',
+    }
+  } catch { return null }
+}
+
+async function fetchLimitUp() {
+  try {
+    const fs = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23'
+    const r = await fetch(EM + '/clist/get?pn=1&pz=30&po=1&np=1&fltt=2&invt=2&fid=f3&fs=' + encodeURIComponent(fs) + '&fields=f2,f3,f4,f12,f14&ut=bd1d9ddb04089700cf9c27f6f7426281', { next: { revalidate: 600 } })
+    const j = await r.json()
+    const list: any[] = j?.data?.diff || []
+    return list.filter((s: any) => Number(s.f3) >= 9.5).slice(0, 15).map((s: any) => ({
+      code: s.f12, name: s.f14, price: s.f2, change: Math.round(Number(s.f4)*100)/100, changePercent: Math.round(Number(s.f3)*100)/100, reason: guess(s.f14 || ''), source: '东方财富',
+    }))
+  } catch { return null }
+}
+
+async function fetchHotSectors() {
+  try {
+    const r = await fetch(EM + '/clist/get?pn=1&pz=10&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:90+t:3&fields=f2,f3,f4,f12,f14&ut=bd1d9ddb04089700cf9c27f6f7426281', { next: { revalidate: 300 } })
+    const j = await r.json()
+    const list: any[] = j?.data?.diff || []
+    return list.slice(0, 10).map((s: any) => ({
+      name: s.f14 || '—',
+      heat: Math.min(100, Math.max(0, Math.round(50 + Number(s.f3 || 0)))),
+      change: Math.round(Number(s.f3)*100)/100,
+      source: '东方财富概念板块',
+    }))
+  } catch { return null }
+}
+
+async function fetchNews() {
+  try {
+    const r = await fetch('https://newsapi.eastmoney.com/kuaixun/v1/getlist_101_ajaxResult_50_1_.html', { next: { revalidate: 300 } })
+    const text = await r.text()
+    const st = text.indexOf('{'), ed = text.lastIndexOf('}')
+    if (st === -1 || ed === -1) return []
+    let json: any
+    try { json = JSON.parse(text.slice(st, ed + 1)) } catch { return [] }
+    const list: any[] = json?.LivesList || []
+    return list.slice(0, 10).map((item: any) => ({
+      title: item.title || item.CONTENT || '',
+      type: classify(item.title || item.CONTENT || ''),
+      time: relTime(item.showtime || item.NOTIME || ''),
+      related: extract(item.title || item.CONTENT || ''),
+      source: '东方财富财经',
+    }))
+  } catch { return [] }
+}
+
+function guess(name: string) {
+  const m: Record<string, string> = {'AI':'AI概念','算力':'算力爆发','芯片':'半导体','汽车':'新能源车','医药':'医疗反弹','军工':'军工订单','银行':'银行修复','白酒':'消费复苏','光伏':'光伏增长','锂电':'锂电出口','券商':'券商异动','房地产':'地产松绑'}
+  for (const [k, v] of Object.entries(m)) { if (name.includes(k)) return v }
+  return '板块轮动'
+}
+
+function classify(t: string) {
+  if (t.includes('央行') || t.includes('证监会') || t.includes('财政部')) return '政策'
+  if (t.includes('业绩') || t.includes('营收')) return '财报'
+  return '行业'
+}
+
+function extract(t: string) {
+  const tags: string[] = []
+  ;['AI','新能源','半导体','医药','银行','芯片','锂电','军工','光伏','券商'].forEach(k => { if (t.includes(k)) tags.push(k) })
+  return tags.slice(0, 3)
+}
+
+function relTime(ts: string) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const h = Math.floor((Date.now() - d.getTime()) / 3600000)
+  if (h < 1) return '刚刚'
+  if (h < 24) return h + '小时前'
+  return Math.floor(h / 24) + '天前'
+}
+
+export async function GET() {
+  const [metalData, indices, limitUpStocks, hotSectors, news] = await Promise.all([
+    fetchMetals(), fetchIndices(), fetchLimitUp(), fetchHotSectors(), fetchNews(),
+  ])
+  const updateTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+  return NextResponse.json({
+    updateTime,
+    metalData: metalData || { gold: { name: '黄金', price: 0, change: 0, changePercent: 0, source: '演示数据' }, silver: null, note: 'API暂不可用' },
+    stockData: indices || [{ name: '上证指数', code: '000001', price: 0, change: 0, changePercent: 0, source: '演示数据' }],
+    limitUpStocks: limitUpStocks || [],
+    hotSectors: hotSectors || [],
+    news: news || [],
+  })
+}
