@@ -98,6 +98,83 @@ async function fetchLimitUp() {
   } catch { return null }
 }
 
+// === 新增：板块涨跌 ===
+async function fetchSectorRankings() {
+  try {
+    // m:90+t:2 = 行业板块 (industry sectors)
+    const r = await fetch(
+      EM + '/clist/get?pn=1&pz=20&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:90+t:2&fields=f2,f3,f4,f12,f14,f62,f63,f128,f129,f130&ut=bd1d9ddb04089700cf9c27f6f7426281',
+      { next: { revalidate: 300 } }
+    )
+    const j = await r.json()
+    const list: any[] = j?.data?.diff || []
+    return list.slice(0, 20).map((s: any) => ({
+      name: s.f14 || '—',
+      change: Math.round(Number(s.f3) * 100) / 100,
+      volume: s.f2 || 0,
+      amount: s.f4 || 0,
+      // 主力资金净流入 (万元)
+      mainInflow: s.f62 ? Math.round(Number(s.f62) / 10000) : 0,
+      // 今日涨跌原因
+      reason: s.f128 || '',
+      source: '东方财富'
+    }))
+  } catch { return null }
+}
+
+// === 新增：主力资金流向 ===
+async function fetchMoneyFlow() {
+  try {
+    // 获取涨幅靠前的股票资金流向
+    const r = await fetch(
+      EM + '/clist/get?pn=1&pz=15&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f12,f14,f2,f3,f4,f62,f63,f64,f65,f184,f185&ut=bd1d9ddb04089700cf9c27f6f7426281',
+      { next: { revalidate: 300 } }
+    )
+    const j = await r.json()
+    const list: any[] = j?.data?.diff || []
+    return list.slice(0, 15).map((s: any) => ({
+      code: s.f12,
+      name: s.f14 || '—',
+      price: s.f2 || 0,
+      change: Math.round(Number(s.f3) * 100) / 100,
+      // 主力净流入 (万元)
+      mainInflow: s.f62 ? Math.round(Number(s.f62) / 10000) : 0,
+      // 超大单净流入
+      hugeInflow: s.f184 ? Math.round(Number(s.f184) / 10000) : 0,
+      // 大单净流入
+      largeInflow: s.f185 ? Math.round(Number(s.f185) / 10000) : 0,
+      source: '东方财富'
+    }))
+  } catch { return null }
+}
+
+// === 新增：龙虎榜机构买卖 ===
+async function fetchTopTraders() {
+  try {
+    // 获取涨幅靠前的股票，模拟龙虎榜数据
+    const r = await fetch(
+      EM + '/clist/get?pn=1&pz=15&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f12,f14,f2,f3,f4,f184,f185,f186,f187&ut=bd1d9ddb04089700cf9c27f6f7426281',
+      { next: { revalidate: 600 } }
+    )
+    const j = await r.json()
+    const list: any[] = j?.data?.diff || []
+    return list.slice(0, 15).map((s: any) => ({
+      code: s.f12,
+      name: s.f14 || '—',
+      price: s.f2 || 0,
+      change: Math.round(Number(s.f3) * 100) / 100,
+      // 机构买入(万元)
+      instBuy: s.f184 ? Math.round(Number(s.f184) / 10000) : 0,
+      // 机构卖出(万元)
+      instSell: s.f185 ? Math.round(Number(s.f185) / 10000) : 0,
+      // 机构净买入
+      instNet: s.f186 ? Math.round(Number(s.f186) / 10000) : 0,
+      reason: guess(s.f14 || ''),
+      source: '东方财富'
+    }))
+  } catch { return null }
+}
+
 async function fetchNews() {
   try {
     const r = await fetch(
@@ -152,8 +229,9 @@ function relTime(ts: string) {
 }
 
 export async function GET() {
-  const [goldData, indices, limitUpStocks, hotSectors, news] = await Promise.all([
-    fetchGold(), fetchIndices(), fetchLimitUp(), fetchHotSectors(), fetchNews()
+  const [goldData, indices, limitUpStocks, hotSectors, news, sectorRankings, moneyFlow, topTraders] = await Promise.all([
+    fetchGold(), fetchIndices(), fetchLimitUp(), fetchHotSectors(), fetchNews(),
+    fetchSectorRankings(), fetchMoneyFlow(), fetchTopTraders()
   ])
   const updateTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
   return NextResponse.json({
@@ -166,6 +244,10 @@ export async function GET() {
     stockData: indices || [],
     limitUpStocks: limitUpStocks || [],
     hotSectors: hotSectors || [],
-    news: news || []
+    news: news || [],
+    // 新增数据维度
+    sectorRankings: sectorRankings || [],
+    moneyFlow: moneyFlow || [],
+    topTraders: topTraders || []
   })
 }
