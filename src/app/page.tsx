@@ -30,19 +30,9 @@ const demoNews = [
 const demoLimitUp = [
   { code: '000001', name: '平安银行', reason: '银行板块利好', change: 9.95, changePercent: 9.95, source: '演示' },
 ]
-const demoSectorRankings = [
-  { name: 'AI概念', change: 3.5 }, { name: '半导体', change: 2.8 },
-  { name: '新能源汽车', change: 2.1 }, { name: '医疗', change: 1.5 },
-  { name: '银行', change: 0.8 }, { name: '房地产', change: -1.2 },
-]
-const demoMoneyFlow = [
-  { code: '600000', name: '浦发银行', price: 8.5, change: 2.3, mainInflow: 12500, hugeInflow: 8200 },
-  { code: '000001', name: '平安银行', price: 12.3, change: 1.8, mainInflow: 9800, hugeInflow: 6500 },
-]
-const demoTopTraders = [
-  { code: '600519', name: '贵州茅台', price: 1680, change: 1.2, instBuy: 5000, instSell: 2000, instNet: 3000 },
-  { code: '000858', name: '五粮液', price: 145, change: 0.8, instBuy: 3200, instSell: 1800, instNet: 1400 },
-]
+const demoSectorRankings: any[] = []
+const demoMoneyFlow: any[] = []
+const demoTopTraders: any[] = []
 
 export default function Home() {
   const [status, setStatus] = useState<'loading'|'demo'|'live'>('loading')
