@@ -6,6 +6,9 @@ import LimitUpStocks from '@/components/LimitUpStocks'
 import HotSectors from '@/components/HotSectors'
 import NewsList from '@/components/NewsList'
 import StockData from '@/components/StockData'
+import SectorRankings from '@/components/SectorRankings'
+import MoneyFlowList from '@/components/MoneyFlowList'
+import TopTraders from '@/components/TopTraders'
 
 const demoMetal = {
   gold: { name: '黄金', price: 2345.67, change: 12.34, changePercent: 0.53, source: '演示', note: '演示数据' },
@@ -26,6 +29,19 @@ const demoNews = [
 ]
 const demoLimitUp = [
   { code: '000001', name: '平安银行', reason: '银行板块利好', change: 9.95, changePercent: 9.95, source: '演示' },
+]
+const demoSectorRankings = [
+  { name: 'AI概念', change: 3.5 }, { name: '半导体', change: 2.8 },
+  { name: '新能源汽车', change: 2.1 }, { name: '医疗', change: 1.5 },
+  { name: '银行', change: 0.8 }, { name: '房地产', change: -1.2 },
+]
+const demoMoneyFlow = [
+  { code: '600000', name: '浦发银行', price: 8.5, change: 2.3, mainInflow: 12500, hugeInflow: 8200 },
+  { code: '000001', name: '平安银行', price: 12.3, change: 1.8, mainInflow: 9800, hugeInflow: 6500 },
+]
+const demoTopTraders = [
+  { code: '600519', name: '贵州茅台', price: 1680, change: 1.2, instBuy: 5000, instSell: 2000, instNet: 3000 },
+  { code: '000858', name: '五粮液', price: 145, change: 0.8, instBuy: 3200, instSell: 1800, instNet: 1400 },
 ]
 
 export default function Home() {
@@ -55,34 +71,56 @@ export default function Home() {
   const limitUp = data?.limitUpStocks || demoLimitUp
   const sectors = data?.hotSectors || demoSectors
   const news = data?.news || demoNews
+  const sectorRankings = data?.sectorRankings || demoSectorRankings
+  const moneyFlow = data?.moneyFlow || demoMoneyFlow
+  const topTraders = data?.topTraders || demoTopTraders
 
   return (
     <main className="min-h-screen">
       <Header status={status} lastUpdate={lastUpdate} onRefresh={load} />
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="glass rounded-lg px-4 py-2 text-amber-400 text-sm">
-          &#9888; 本页仅供学习参考，不构成投资建议。投资有风险，入市需谨慎。
+          ⚠️ 本页仅供学习参考，不构成投资建议。投资有风险，入市需谨慎。
         </div>
       </div>
+
+      {/* 第一行：贵金属 + 大盘指数 */}
       <section className="max-w-7xl mx-auto px-4 mb-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <MetalPrices data={metal} />
           <StockData indices={indices} />
         </div>
       </section>
+
+      {/* 第二行：涨停股 */}
       <section className="max-w-7xl mx-auto px-4 mb-6">
         <LimitUpStocks stocks={limitUp} />
       </section>
-      <section className="max-w-7xl mx-auto px-4 mb-8">
+
+      {/* 第三行：热门概念 + 新闻 */}
+      <section className="max-w-7xl mx-auto px-4 mb-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <HotSectors sectors={sectors} />
           <NewsList news={news} />
         </div>
       </section>
+
+      {/* 第四行：新增数据维度 */}
+      <section className="max-w-7xl mx-auto px-4 mb-6">
+        <SectorRankings sectors={sectorRankings} />
+      </section>
+
+      <section className="max-w-7xl mx-auto px-4 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <MoneyFlowList stocks={moneyFlow} />
+          <TopTraders stocks={topTraders} />
+        </div>
+      </section>
+
       <footer className="glass mt-8 py-6 text-center text-gray-400 text-sm">
         <p>每日投资参考路  数据仅供引用，不构成投资建议</p>
         <p className="mt-1">市场有风险，投资需谨慎</p>
-        <p className="mt-1 text-xs text-gray-600">数据来源：东方财富 | 仅供学习参考</p>
+        <p className="mt-1 text-xs text-gray-600">数据来源：东方财富 | 腾讯行情 | 仅供学习参考</p>
       </footer>
     </main>
   )
